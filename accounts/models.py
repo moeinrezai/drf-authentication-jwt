@@ -5,29 +5,29 @@ from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 
 
 class MyUserManager(BaseUserManager):
-    def create_user(self, email, name, remember_me=False, password=None):
+    def create_user(self, email, name, password=None, **extra_fields):
         if not email:
             raise ValueError("وارد کردن ایمیل الزامی است")
 
         user = self.model(
             email=self.normalize_email(email),
+            name=name,
+            **extra_fields
         )
-        user.name = name
-        user.remember_me = remember_me
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, name, remember_me=False, password=None):
-        user = self.create_user(
+    def create_superuser(self, email, name, password=None, **extra_fields):
+        extra_fields.setdefault('is_admin', True)
+        extra_fields.setdefault('is_active', True)
+        
+        return self.create_user(
             email=email,
             name=name,
-            remember_me=remember_me,
-            password=password
+            password=password,
+            **extra_fields
         )
-        user.is_admin = True
-        user.save(using=self._db)
-        return user
 
 
 class User(AbstractBaseUser):
@@ -57,18 +57,23 @@ class User(AbstractBaseUser):
         default=False,
         help_text="آیا کاربر دسترسی مدیریتی دارد؟"
     )
+    date_joined = models.DateTimeField(
+        verbose_name="تاریخ عضویت",
+        auto_now_add=True
+    )
 
     objects = MyUserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["name", "remember_me"]
+    REQUIRED_FIELDS = ["name"]  
 
     class Meta:
         verbose_name = "کاربر"
         verbose_name_plural = "کاربران"
+        ordering = ['-date_joined']
 
     def __str__(self):
-        return self.email
+        return f"{self.name} ({self.email})"
 
     def has_perm(self, perm, obj=None):
         return self.is_admin
