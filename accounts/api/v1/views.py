@@ -14,7 +14,7 @@ from django.core.exceptions import ValidationError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from ...models import User, Profile
+from ...models import User, Profile 
 from .serializers import (
     UserRegisterSerializer,
     UserLoginSerializer,
@@ -54,7 +54,6 @@ class RegisterView(APIView):
                     "errors": serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-    
             user_data = serializer.save()
             
             return Response({
@@ -416,7 +415,6 @@ class UserStatusView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# --- Admin Views ---
 
 class AdminUserManagementView(APIView):
     """
@@ -621,9 +619,7 @@ class AdminUserDetailView(APIView):
 
 
 class UserStatsView(APIView):
-    """
-    ویو برای آمار کاربران
-    """
+
     permission_classes = [permissions.IsAdminUser]
 
     @swagger_auto_schema(

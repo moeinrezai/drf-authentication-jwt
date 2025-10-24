@@ -87,23 +87,35 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        # 🔥 اصلاح: حذف password_confirm قبل از ایجاد کاربر
         validated_data.pop('password_confirm', None)
         password = validated_data.pop('password')
+        
+        # ایجاد کاربر
         user = User.objects.create_user(
             email=validated_data['email'],
             name=validated_data['name'],
             password=password,
             remember_me=validated_data.get('remember_me', False)
         )
+        
+        # ایجاد پروفایل خودکار
         Profile.objects.get_or_create(user=user)
-        return user
+        
+        # 🔥 اصلاح: برگرداندن دیکشنری قابل JSON شدن
+        refresh = RefreshToken.for_user(user)
+        
+        return {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "remember_me": user.remember_me,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "date_joined": user.date_joined
+        }
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        refresh = RefreshToken.for_user(instance)
-        data['access'] = str(refresh.access_token)
-        data['refresh'] = str(refresh)
-        return data
+
 
 
 class UserLoginSerializer(serializers.Serializer):
