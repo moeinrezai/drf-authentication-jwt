@@ -1,162 +1,101 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
+from django.core.validators import RegexValidator
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 
 class MyUserManager(BaseUserManager):
+    """
+    Custom user model manager where email is the unique identifier
+    instead of usernames.
+    """
+
     def create_user(self, email, name, password=None, **extra_fields):
         if not email:
-            raise ValueError("وارد کردن ایمیل الزامی است")
-
-        user = self.model(
-            email=self.normalize_email(email),
-            name=name,
-            **extra_fields
-        )
+            raise ValueError(_("وارد کردن ایمیل الزامی است"))
+        email = self.normalize_email(email)
+        user = self.model(email=email, name=name, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
     def create_superuser(self, email, name, password=None, **extra_fields):
-        extra_fields.setdefault('is_admin', True)
-        extra_fields.setdefault('is_active', True)
-        
+        extra_fields.setdefault("is_admin", True)
+        extra_fields.setdefault("is_active", True)
+        extra_fields.setdefault("is_superuser", True)
 
-        if extra_fields.get('is_admin') is not True:
-            raise ValueError('Superuser must have is_admin=True.')
-        
-        return self.create_user(
-            email=email,
-            name=name,
-            password=password,
-            **extra_fields
-        )
+        if extra_fields.get("is_admin") is not True:
+            raise ValueError(_("Superuser must have is_admin=True."))
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError(_("Superuser must have is_superuser=True."))
+
+        return self.create_user(email, name, password, **extra_fields)
 
 
-class User(AbstractBaseUser):
-    email = models.EmailField(
-        verbose_name="ایمیل",
-        max_length=255,
-        unique=True,
-        help_text="آدرس ایمیل معتبر کاربر"
-    )
-    name = models.CharField(
-        verbose_name="نام کامل",
-        max_length=100,
-        help_text="نام و نام خانوادگی کاربر"
-    )
-    remember_me = models.BooleanField(
-        verbose_name="مرا به خاطر بسپار",
-        default=False,
-        help_text="در صورت فعال بودن، نشست کاربر حفظ می‌شود"
-    )
-    is_active = models.BooleanField(
-        verbose_name="فعال",
-        default=True,
-        help_text="آیا حساب کاربری فعال است؟"
-    )
-    is_admin = models.BooleanField(
-        verbose_name="مدیر",
-        default=False,
-        help_text="آیا کاربر دسترسی مدیریتی دارد؟"
-    )
-    date_joined = models.DateTimeField(
-        verbose_name="تاریخ عضویت",
-        auto_now_add=True
-    )
+class User(AbstractBaseUser, PermissionsMixin):
+
+
+    email = models.EmailField(_("ایمیل"), max_length=255, unique=True)
+    name = models.CharField(_("نام کامل"), max_length=100)
+    is_active = models.BooleanField(_("فعال"), default=True)
+    is_admin = models.BooleanField(_("مدیر"), default=False)
+    date_joined = models.DateTimeField(_("تاریخ عضویت"), default=timezone.now)
 
     objects = MyUserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["name"]  
+    REQUIRED_FIELDS = ["name"]
 
     class Meta:
-        verbose_name = "کاربر"
-        verbose_name_plural = "کاربران"
-        ordering = ['-date_joined']
+        verbose_name = _("کاربر")
+        verbose_name_plural = _("کاربران")
+        ordering = ["-date_joined"]
 
     def __str__(self):
         return f"{self.name} ({self.email})"
 
-    def has_perm(self, perm, obj=None):
-        return self.is_admin
-
-    def has_module_perms(self, app_label):
-        return True
-
     @property
     def is_staff(self):
+        """Required by Django admin to determine if user can access admin site."""
         return self.is_admin
-
-
-class GenderChoices(models.TextChoices):
-    MALE = "M", _("مرد")
-    FEMALE = "F", _("زن")
-    OTHER = "O", _("سایر")
 
 
 class Profile(models.Model):
+    """
+    Extended user profile with additional personal information.
+    """
+
+    # اعتبارسنجی اختیاری برای شماره تلفن ایرانی
+    iranian_phone_validator = RegexValidator(
+        regex=r"^09[0-9]{9}$",
+        message=_("شماره تلفن باید یک شماره موبایل معتبر ایرانی باشد (مثلاً 09123456789).")
+    )
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="profile",
-        verbose_name="کاربر"
+        verbose_name=_("کاربر")
     )
-    bio = models.TextField(
-        verbose_name="بیوگرافی",
-        blank=True,
-        help_text="توضیح کوتاه درباره کاربر"
-    )
-    avatar = models.ImageField(
-        verbose_name="تصویر پروفایل",
-        upload_to="avatars/",
-        blank=True,
-        null=True,
-        help_text="آپلود تصویر پروفایل"
-    )
+    bio = models.TextField(_("بیوگرافی"), blank=True)
+    avatar = models.ImageField(_("تصویر پروفایل"), upload_to="avatars/", blank=True)
     phone_number = models.CharField(
-        verbose_name="شماره تماس",
+        _("شماره تماس"),
         max_length=15,
         blank=True,
-        help_text="شماره موبایل کاربر"
+        validators=[iranian_phone_validator]
     )
-    birth_date = models.DateField(
-        verbose_name="تاریخ تولد",
-        blank=True,
-        null=True,
-        help_text="تاریخ تولد کاربر"
-    )
-    gender = models.CharField(
-        verbose_name="جنسیت",
-        max_length=1,
-        choices=GenderChoices.choices,
-        blank=True,
-        help_text="انتخاب جنسیت"
-    )
-    website = models.URLField(
-        verbose_name="وب‌سایت شخصی",
-        blank=True,
-        help_text="آدرس وب‌سایت یا شبکه اجتماعی"
-    )
-    location = models.CharField(
-        verbose_name="محل سکونت",
-        max_length=100,
-        blank=True,
-        help_text="شهر یا کشور"
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="تاریخ ایجاد"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name="آخرین بروزرسانی"
-    )
+    birth_date = models.DateField(_("تاریخ تولد"), blank=True, null=True)
+    website = models.URLField(_("وب‌سایت شخصی"), blank=True)
+    location = models.CharField(_("محل سکونت"), max_length=100, blank=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("آخرین بروزرسانی"), auto_now=True)
 
     class Meta:
-        verbose_name = "پروفایل"
-        verbose_name_plural = "پروفایل‌ها"
+        verbose_name = _("پروفایل")
+        verbose_name_plural = _("پروفایل‌ها")
 
     def __str__(self):
-        return f"پروفایل {self.user.email}"
+        return _("پروفایل {email}").format(email=self.user.email)
