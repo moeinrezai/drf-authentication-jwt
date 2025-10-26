@@ -19,7 +19,7 @@ from .serializers import (
 
 User = get_user_model()
 
-# برای مخفی کردن رمز عبور در لاگ‌ها
+
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters("password", "password_confirm", "old_password", "new_password")
 )

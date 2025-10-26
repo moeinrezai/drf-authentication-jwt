@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from ...models import User, Profile
 
 
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
