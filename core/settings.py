@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -131,7 +132,7 @@ REST_FRAMEWORK = {
 }
 
 
-# JWT Settings
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -140,14 +141,16 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
 }
 
-# CORS Settings
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    "http://localhost:3000",  # React development server
     "http://127.0.0.1:3000",
-    "http://localhost:8000",
+    "http://localhost:8000",  # Django development server
     "http://127.0.0.1:8000",
+    "http://localhost:8080",  # Vue.js development server
+    "http://127.0.0.1:8080",
 ]
-CORS_ALLOW_CREDENTIALS = False  # فقط در صورت نیاز به کوکی فعال شود
+
+CORS_ALLOW_CREDENTIALS = True
 
 # Security (for production — uncomment when ready)
 # SECURE_SSL_REDIRECT = True
@@ -161,8 +164,27 @@ CORS_ALLOW_CREDENTIALS = False  # فقط در صورت نیاز به کوکی ف
 
 # drf-spectacular (Swagger/OpenAPI)
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Authentication API',
-    'DESCRIPTION': 'A secure user authentication and profile management API',
+    'TITLE': 'DRF Authentication JWT API',
+    'DESCRIPTION': 'سیستم کامل احراز هویت با JWT',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    
+    # تنظیمات احراز هویت JWT در Swagger
+    'SECURITY': [{'Bearer': []}],
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'توکن دسترسی به فرمت: Bearer <token>'
+        }
+    },
+    
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,  # ذخیره توکن پس از رفرش
+        'docExpansion': 'none',
+        'displayRequestDuration': True,
+    },
+    
+    'COMPONENT_SPLIT_REQUEST': True,
 }
