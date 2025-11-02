@@ -55,6 +55,23 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.name} ({self.email})"
+    
+
+    def has_perm(self, perm, obj=None):
+        """
+        بررسی دسترسی خاص
+        """
+        if self.is_admin or self.is_superuser:
+            return True
+        return super().has_perm(perm, obj)
+
+    def has_module_perms(self, app_label):
+        """
+        بررسی دسترسی به ماژول
+        """
+        if self.is_admin or self.is_superuser:
+            return True
+        return super().has_module_perms(app_label)
 
     @property
     def is_staff(self):

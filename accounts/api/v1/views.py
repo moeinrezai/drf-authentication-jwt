@@ -371,49 +371,13 @@ class ProfileDetailView(generics.RetrieveUpdateAPIView):
         return super().patch(request, *args, **kwargs)
 
 
-class ChangePasswordView(generics.UpdateAPIView):
-    """
-    تغییر رمز عبور کاربر.
-    """
+class ChangePasswordView(views.APIView):  # ← تغییر این خط
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
 
-    @sensitive_post_parameters_m
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
-
-    @extend_schema(
-        request=ChangePasswordSerializer,
-        responses={
-            200: OpenApiResponse(
-                description="رمز عبور با موفقیت تغییر کرد",
-                examples=[
-                    OpenApiExample(
-                        'مثال پاسخ موفق',
-                        value={
-                            "detail": "رمز عبور با موفقیت تغییر کرد"
-                        }
-                    )
-                ]
-            ),
-            400: OpenApiResponse(description="خطای اعتبارسنجی"),
-            401: OpenApiResponse(description="عدم احراز هویت")
-        },
-        examples=[
-            OpenApiExample(
-                'مثال درخواست',
-                value={
-                    "old_password": "OldPassword123",
-                    "new_password": "NewPassword456",
-                    "new_password_confirm": "NewPassword456"
-                },
-                request_only=True
-            )
-        ]
-    )
-    def update(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+    def post(self, request, *args, **kwargs):  # ← اینجا باید post باشد، نه update
+        serializer = self.serializer_class(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
