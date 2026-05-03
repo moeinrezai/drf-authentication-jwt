@@ -1,193 +1,251 @@
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.translation import gettext_lazy as _
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
-from ...models import Profile
-from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.settings import api_settings
+from accounts.models import Profile
+
 User = get_user_model()
 
-class UserRegisterSerializer(serializers.ModelSerializer):
+
+class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=True,
-        style={'input_type': 'password'},
         min_length=8,
-        max_length=128,
-        error_messages={
-            'required': 'وارد کردن رمز عبور الزامی است',
-            'min_length': 'رمز عبور باید حداقل ۸ کاراکتر باشد'
-        }
+        style={'input_type': 'password'},
+        label=_("رمز عبور")
     )
-    password_confirm = serializers.CharField(
+    password2 = serializers.CharField(
         write_only=True,
         required=True,
         style={'input_type': 'password'},
-        error_messages={
-            'required': 'تکرار رمز عبور الزامی است'
-        }
+        label=_("تکرار رمز عبور")
+    )
+    phone_number = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=15,
+        label=_("شماره تماس")
     )
 
     class Meta:
         model = User
-        fields = ["email", "name", "password", "password_confirm"]
+        fields = ('email', 'name', 'password', 'password2', 'phone_number')
         extra_kwargs = {
-            'email': {'required': True, 'error_messages': {'required': 'وارد کردن ایمیل الزامی است'}},
-            'name': {'required': True, 'error_messages': {'required': 'وارد کردن نام الزامی است'}},
+            'email': {'required': True, 'label': _("ایمیل")},
+            'name': {'required': True, 'label': _("نام کامل")},
         }
 
     def validate_email(self, value):
-        value = value.lower().strip()
         if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("این ایمیل قبلاً ثبت شده است")
-        return value
-
-    def validate_password(self, value):
-        try:
-            validate_password(value)
-        except DjangoValidationError as e:
-            raise serializers.ValidationError(list(e.messages))
-        if value.isdigit() or value.isalpha():
-            raise serializers.ValidationError("رمز عبور باید ترکیبی از حروف و اعداد باشد")
+            raise serializers.ValidationError(_("این ایمیل قبلاً ثبت شده است."))
         return value
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError({"password_confirm": "رمز عبور و تکرار آن مطابقت ندارند"})
+        if attrs['password'] != attrs.pop('password2'):
+            raise serializers.ValidationError({"password": _("رمزهای عبور با هم مطابقت ندارند.")})
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
-        password = validated_data.pop('password')
-        user = User.objects.create_user(password=password, **validated_data)
-        Profile.objects.get_or_create(user=user)  # اطمینان از وجود پروفایل
+        phone_number = validated_data.pop('phone_number', None)
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            name=validated_data['name'],
+            password=validated_data['password']
+        )
+        # ذخیره شماره تماس در پروفایل ایجاد شده توسط سیگنال
+        if phone_number:
+            user.profile.phone_number = phone_number
+            user.profile.save()
         return user
 
     def to_representation(self, instance):
-        data = super().to_representation(instance)
+        """
+        پس از ثبت‌نام، توکن‌های JWT را برمی‌گردانیم.
+        """
         refresh = RefreshToken.for_user(instance)
-        data.update({
-            'access': str(refresh.access_token),
+        return {
             'refresh': str(refresh),
-            'id': instance.id,
-            'date_joined': instance.date_joined,
-        })
-        return data
+            'access': str(refresh.access_token),
+        }
 
 
-class UserLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(
-        required=True,
-        error_messages={'required': 'وارد کردن ایمیل الزامی است', 'invalid': 'فرمت ایمیل نامعتبر است'}
-    )
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'},
-        error_messages={'required': 'وارد کردن رمز عبور الزامی است'}
+class LoginSerializer(TokenObtainPairSerializer):
+    """
+    سریالایزر ورود (استفاده از ایمیل و رمز عبور).
+    از TokenObtainPairSerializer استاندارد SimpleJWT ارث‌بری می‌کند.
+    """
+    username_field = User.USERNAME_FIELD  # 'email'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[self.username_field].label = _("ایمیل")
+        self.fields['password'].label = _("رمز عبور")
+
+
+class RefreshSerializer(serializers.Serializer):
+    refresh = serializers.CharField(
+        required=False,
+        help_text="برای موبایل: token رفرش را در بدنه ارسال کنید. برای وب: از کوکی خوانده می‌شود."
     )
 
     def validate(self, attrs):
-        email = attrs['email'].lower().strip()
-        password = attrs['password']
+        request = self.context.get('request')
+        refresh_token = None
 
-        user = authenticate(request=self.context.get('request'), username=email, password=password)
-        if not user:
-            raise serializers.ValidationError({"non_field_errors": ["ایمیل یا رمز عبور اشتباه است"]})
-        if not user.is_active:
-            raise serializers.ValidationError({"non_field_errors": ["حساب کاربری غیرفعال شده است"]})
+        if hasattr(request, 'device_type') and request.device_type == 'web':
+            refresh_token = request.COOKIES.get('refresh_token')
+            if not refresh_token:
+                raise serializers.ValidationError({"refresh": _("کوکی رفرش پیدا نشد.")})
+        else:
+            refresh_token = attrs.get('refresh', '')
+            if not refresh_token:
+                raise serializers.ValidationError({"refresh": _("توکن رفرش الزامی است.")})
 
-        attrs['user'] = user
-        return attrs
+        try:
+            refresh = RefreshToken(refresh_token)
+        except Exception:
+            raise serializers.ValidationError({"refresh": _("توکن رفرش نامعتبر یا منقضی شده است.")})
 
-    def to_representation(self, instance):
-        # این متد فقط برای خروجی فراخوانی می‌شود
-        user = self.validated_data['user']
-        refresh = RefreshToken.for_user(user)
-        return {
-            "user_id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "is_admin": user.is_admin,
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
+
+        if api_settings.ROTATE_REFRESH_TOKENS:
+            if api_settings.BLACKLIST_AFTER_ROTATION:
+                try:
+                    refresh.blacklist()
+                except AttributeError:
+                    pass  
+
+        
+            refresh = RefreshToken.for_user(refresh.user)
+
+        data = {
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
         }
-
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            "id", "email", "name", "date_joined", "last_login", "is_active" 
-        ]
-        read_only_fields = [
-            "id", "email", "date_joined", "last_login", "is_active"  
-        ]
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    avatar_url = serializers.SerializerMethodField()
-    user_email = serializers.EmailField(source="user.email", read_only=True)
-    user_name = serializers.CharField(source="user.name", read_only=True)
-
-    class Meta:
-        model = Profile
-        fields = [
-            "id", "user_email", "user_name", "bio", "avatar", "avatar_url",
-            "phone_number", "birth_date", "website", "location", "created_at", "updated_at"
-        ]
-        read_only_fields = ["id", "user_email", "user_name", "avatar_url", "created_at", "updated_at"]
-        extra_kwargs = {
-            'bio': {'required': False, 'allow_blank': True},
-            'phone_number': {'required': False, 'allow_blank': True},
-            'birth_date': {'required': False, 'allow_null': True},
-            'website': {'required': False, 'allow_blank': True},
-            'location': {'required': False, 'allow_blank': True},
-        }
-
-    def get_avatar_url(self, obj):
-        if obj.avatar and hasattr(obj.avatar, 'url'):
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.avatar.url)
-            return obj.avatar.url  # fallback
-        return None
-
-    def validate_website(self, value):
-        if value and not value.startswith(('http://', 'https://')):
-            return 'https://' + value
-        return value
+        return data
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(write_only=True, required=True)
-    new_password = serializers.CharField(write_only=True, required=True, min_length=8)
-    new_password_confirm = serializers.CharField(write_only=True, required=True)
+    old_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        label=_("رمز عبور فعلی")
+    )
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        style={'input_type': 'password'},
+        label=_("رمز عبور جدید")
+    )
+    new_password2 = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        label=_("تکرار رمز عبور جدید")
+    )
 
     def validate_old_password(self, value):
         user = self.context['request'].user
         if not user.check_password(value):
-            raise serializers.ValidationError("رمز عبور فعلی اشتباه است")
-        return value
-
-    def validate_new_password(self, value):
-        try:
-            validate_password(value)
-        except DjangoValidationError as e:
-            raise serializers.ValidationError(list(e.messages))
-        if value.isdigit() or value.isalpha():
-            raise serializers.ValidationError("رمز عبور باید ترکیبی از حروف و اعداد باشد")
+            raise serializers.ValidationError(_("رمز عبور فعلی اشتباه است."))
         return value
 
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password_confirm']:
-            raise serializers.ValidationError({"new_password_confirm": "رمز عبور جدید و تکرار آن مطابقت ندارند"})
-        if attrs['old_password'] == attrs['new_password']:
-            raise serializers.ValidationError({"new_password": "رمز عبور جدید نباید با رمز عبور فعلی یکسان باشد"})
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({"new_password": _("رمزهای عبور جدید مطابقت ندارند.")})
         return attrs
 
     def save(self, **kwargs):
         user = self.context['request'].user
         user.set_password(self.validated_data['new_password'])
-        user.save(update_fields=['password'])
+        user.save(update_fields=['password'])  
         return user
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(label=_("ایمیل"))
+
+    def validate_email(self, value):
+       
+        return value
+
+    def save(self):
+        email = self.validated_data['email']
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+          
+            return
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        from .utils import send_password_reset_email
+        send_password_reset_email(user, uid, token, request=self.context.get('request'))
+
+
+class ResetPasswordConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(label=_("شناسه کاربری رمزگذاری شده"))
+    token = serializers.CharField(label=_("توکن بازنشانی"))
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        style={'input_type': 'password'},
+        label=_("رمز عبور جدید")
+    )
+    new_password2 = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        label=_("تکرار رمز عبور جدید")
+    )
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({"new_password": _("رمزهای عبور جدید مطابقت ندارند.")})
+
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            self.user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({"uid": _("شناسه کاربر نامعتبر است.")})
+
+        if not default_token_generator.check_token(self.user, attrs['token']):
+            raise serializers.ValidationError({"token": _("توکن بازنشانی نامعتبر یا منقضی شده است.")})
+
+        return attrs
+
+    def save(self):
+        self.user.set_password(self.validated_data['new_password'])
+        self.user.save(update_fields=['password']) 
+        return self.user
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True, label=_("ایمیل"))
+    name = serializers.CharField(source='user.name', read_only=True, label=_("نام کامل"))
+
+    class Meta:
+        model = Profile
+        fields = [
+            'id', 'user', 'email', 'name', 'bio', 'avatar',
+            'phone_number', 'birth_date', 'website', 'location',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['user', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'bio': {'label': _("بیوگرافی")},
+            'avatar': {'label': _("تصویر پروفایل")},
+            'phone_number': {'label': _("شماره تماس")},
+            'birth_date': {'label': _("تاریخ تولد")},
+            'website': {'label': _("وب‌سایت شخصی")},
+            'location': {'label': _("محل سکونت")},
+        }

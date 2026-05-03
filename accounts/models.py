@@ -58,17 +58,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     
 
     def has_perm(self, perm, obj=None):
-        """
-        بررسی دسترسی خاص
-        """
+       
         if self.is_admin or self.is_superuser:
             return True
         return super().has_perm(perm, obj)
 
     def has_module_perms(self, app_label):
-        """
-        بررسی دسترسی به ماژول
-        """
+      
         if self.is_admin or self.is_superuser:
             return True
         return super().has_module_perms(app_label)
@@ -84,7 +80,6 @@ class Profile(models.Model):
     Extended user profile with additional personal information.
     """
 
-    # اعتبارسنجی اختیاری برای شماره تلفن ایرانی
     iranian_phone_validator = RegexValidator(
         regex=r"^09[0-9]{9}$",
         message=_("شماره تلفن باید یک شماره موبایل معتبر ایرانی باشد (مثلاً 09123456789).")

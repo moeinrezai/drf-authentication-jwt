@@ -31,7 +31,7 @@ class UserAdmin(BaseUserAdmin):
     list_editable = ('is_active',)
     actions = ['activate_users', 'deactivate_users', 'make_admin', 'remove_admin']
 
-    # حذف فیلدهای غیرضروری
+ 
     filter_horizontal = ()
     filter_vertical = ()
 
@@ -70,7 +70,7 @@ class UserAdmin(BaseUserAdmin):
         return "—"
     profile_link.short_description = _("پروفایل")
 
-    # Actions
+
     def activate_users(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(
@@ -211,7 +211,7 @@ class ProfileAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related('user')
 
 
-# سفارشی‌سازی عنوان‌های ادمین
+
 admin.site.site_header = _("پنل مدیریت سیستم احراز هویت")
 admin.site.site_title = _("سیستم احراز هویت")
 admin.site.index_title = _("خوش آمدید به پنل مدیریت")
