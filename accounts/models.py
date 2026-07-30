@@ -3,7 +3,11 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 
 
 class MyUserManager(BaseUserManager):
@@ -36,7 +40,6 @@ class MyUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
 
-
     email = models.EmailField(_("ایمیل"), max_length=255, unique=True)
     name = models.CharField(_("نام کامل"), max_length=100)
     is_active = models.BooleanField(_("فعال"), default=True)
@@ -55,16 +58,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.name} ({self.email})"
-    
 
     def has_perm(self, perm, obj=None):
-       
+
         if self.is_admin or self.is_superuser:
             return True
         return super().has_perm(perm, obj)
 
     def has_module_perms(self, app_label):
-      
+
         if self.is_admin or self.is_superuser:
             return True
         return super().has_module_perms(app_label)
@@ -82,22 +84,21 @@ class Profile(models.Model):
 
     iranian_phone_validator = RegexValidator(
         regex=r"^09[0-9]{9}$",
-        message=_("شماره تلفن باید یک شماره موبایل معتبر ایرانی باشد (مثلاً 09123456789).")
+        message=_(
+            "شماره تلفن باید یک شماره موبایل معتبر ایرانی باشد (مثلاً 09123456789)."
+        ),
     )
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="profile",
-        verbose_name=_("کاربر")
+        verbose_name=_("کاربر"),
     )
     bio = models.TextField(_("بیوگرافی"), blank=True)
     avatar = models.ImageField(_("تصویر پروفایل"), upload_to="avatars/", blank=True)
     phone_number = models.CharField(
-        _("شماره تماس"),
-        max_length=15,
-        blank=True,
-        validators=[iranian_phone_validator]
+        _("شماره تماس"), max_length=15, blank=True, validators=[iranian_phone_validator]
     )
     birth_date = models.DateField(_("تاریخ تولد"), blank=True, null=True)
     website = models.URLField(_("وب‌سایت شخصی"), blank=True)

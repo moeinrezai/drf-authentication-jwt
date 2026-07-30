@@ -22,13 +22,13 @@ from .serializers import (
 from .authentication import CookieOrHeaderJWTAuthentication
 
 # خواندن تنظیمات کوکی مستقیماً از SIMPLE_JWT
-jwt_settings = getattr(settings, 'SIMPLE_JWT', {})
-ACCESS_COOKIE = jwt_settings.get('AUTH_COOKIE', 'access_token')
-REFRESH_COOKIE = jwt_settings.get('AUTH_COOKIE_REFRESH', 'refresh_token')
-COOKIE_SAMESITE = jwt_settings.get('AUTH_COOKIE_SAMESITE', 'Lax')
-COOKIE_HTTPONLY = jwt_settings.get('AUTH_COOKIE_HTTP_ONLY', True)
-COOKIE_SECURE = jwt_settings.get('AUTH_COOKIE_SECURE', not settings.DEBUG)
-COOKIE_PATH = jwt_settings.get('AUTH_COOKIE_PATH', '/')
+jwt_settings = getattr(settings, "SIMPLE_JWT", {})
+ACCESS_COOKIE = jwt_settings.get("AUTH_COOKIE", "access_token")
+REFRESH_COOKIE = jwt_settings.get("AUTH_COOKIE_REFRESH", "refresh_token")
+COOKIE_SAMESITE = jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax")
+COOKIE_HTTPONLY = jwt_settings.get("AUTH_COOKIE_HTTP_ONLY", True)
+COOKIE_SECURE = jwt_settings.get("AUTH_COOKIE_SECURE", not settings.DEBUG)
+COOKIE_PATH = jwt_settings.get("AUTH_COOKIE_PATH", "/")
 
 
 def set_auth_cookies(response, access_token, refresh_token):
@@ -65,14 +65,14 @@ class CsrfTokenView(APIView):
         return super().dispatch(*args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        return Response({'detail': 'CSRF cookie set.'})
+        return Response({"detail": "CSRF cookie set."})
 
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
 
-    @method_decorator(sensitive_post_parameters('password', 'password2'))
+    @method_decorator(sensitive_post_parameters("password", "password2"))
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
@@ -82,12 +82,12 @@ class RegisterView(APIView):
         user = serializer.save()
         tokens = serializer.to_representation(user)
 
-        if getattr(request, 'device_type', None) == 'web':
+        if getattr(request, "device_type", None) == "web":
             response = Response(
-                {'detail': 'ثبت‌نام با موفقیت انجام شد.'},
-                status=status.HTTP_201_CREATED
+                {"detail": "ثبت‌نام با موفقیت انجام شد."},
+                status=status.HTTP_201_CREATED,
             )
-            return set_auth_cookies(response, tokens['access'], tokens['refresh'])
+            return set_auth_cookies(response, tokens["access"], tokens["refresh"])
         return Response(tokens, status=status.HTTP_201_CREATED)
 
 
@@ -95,7 +95,7 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = LoginSerializer
 
-    @method_decorator(sensitive_post_parameters('password'))
+    @method_decorator(sensitive_post_parameters("password"))
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
@@ -104,9 +104,9 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        if getattr(request, 'device_type', None) == 'web':
-            response = Response({'detail': 'ورود موفقیت‌آمیز.'})
-            return set_auth_cookies(response, data['access'], data['refresh'])
+        if getattr(request, "device_type", None) == "web":
+            response = Response({"detail": "ورود موفقیت‌آمیز."})
+            return set_auth_cookies(response, data["access"], data["refresh"])
         return Response(data)
 
 
@@ -116,15 +116,14 @@ class RefreshView(APIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(
-            data=request.data,
-            context={'request': request}
+            data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         tokens = serializer.validated_data
 
-        if getattr(request, 'device_type', None) == 'web':
-            response = Response({'detail': 'توکن با موفقیت تمدید شد.'})
-            return set_auth_cookies(response, tokens['access'], tokens['refresh'])
+        if getattr(request, "device_type", None) == "web":
+            response = Response({"detail": "توکن با موفقیت تمدید شد."})
+            return set_auth_cookies(response, tokens["access"], tokens["refresh"])
         return Response(tokens)
 
 
@@ -133,10 +132,10 @@ class LogoutView(APIView):
 
     def post(self, request, *args, **kwargs):
         refresh_token = None
-        if getattr(request, 'device_type', None) == 'web':
+        if getattr(request, "device_type", None) == "web":
             refresh_token = request.COOKIES.get(REFRESH_COOKIE)
         else:
-            refresh_token = request.data.get('refresh')
+            refresh_token = request.data.get("refresh")
 
         if refresh_token:
             try:
@@ -145,30 +144,31 @@ class LogoutView(APIView):
             except TokenError:
                 pass
 
-        if getattr(request, 'device_type', None) == 'web':
-            response = Response({'detail': 'خروج موفقیت‌آمیز.'})
+        if getattr(request, "device_type", None) == "web":
+            response = Response({"detail": "خروج موفقیت‌آمیز."})
             return delete_auth_cookies(response)
-        return Response({'detail': 'خروج موفقیت‌آمیز.'})
+        return Response({"detail": "خروج موفقیت‌آمیز."})
 
 
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ChangePasswordSerializer
 
-    @method_decorator(sensitive_post_parameters('old_password', 'new_password', 'new_password2'))
+    @method_decorator(
+        sensitive_post_parameters("old_password", "new_password", "new_password2")
+    )
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(
-            data=request.data,
-            context={'request': request}
+            data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
-            {'detail': 'رمز عبور با موفقیت تغییر کرد. لطفاً دوباره وارد شوید.'},
-            status=status.HTTP_200_OK
+            {"detail": "رمز عبور با موفقیت تغییر کرد. لطفاً دوباره وارد شوید."},
+            status=status.HTTP_200_OK,
         )
 
 
@@ -178,13 +178,14 @@ class ForgotPasswordView(APIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(
-            data=request.data,
-            context={'request': request}
+            data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
-            {'detail': 'اگر این ایمیل در سیستم وجود داشته باشد لینک بازنشانی ارسال خواهد شد.'}
+            {
+                "detail": "اگر این ایمیل در سیستم وجود داشته باشد لینک بازنشانی ارسال خواهد شد."
+            }
         )
 
 
@@ -192,7 +193,7 @@ class ResetPasswordConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = ResetPasswordConfirmSerializer
 
-    @method_decorator(sensitive_post_parameters('new_password', 'new_password2'))
+    @method_decorator(sensitive_post_parameters("new_password", "new_password2"))
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
@@ -201,7 +202,7 @@ class ResetPasswordConfirmView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
-            {'detail': 'رمز عبور با موفقیت بازنشانی شد. اکنون می‌توانید وارد شوید.'}
+            {"detail": "رمز عبور با موفقیت بازنشانی شد. اکنون می‌توانید وارد شوید."}
         )
 
 

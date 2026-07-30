@@ -20,7 +20,7 @@ def save_user_profile(sender, instance, **kwargs):
     """
     ذخیره پروفایل پس از به‌روزرسانی کاربر
     """
-    if hasattr(instance, 'profile'):
+    if hasattr(instance, "profile"):
         instance.profile.save()
 
 
@@ -29,7 +29,8 @@ def blacklist_tokens_on_password_change(sender, instance, **kwargs):
     """
     بلاک‌لیست کردن تمام توکن‌ها هنگام تغییر رمز عبور
     """
-    update_fields = kwargs.get('update_fields')
-    if update_fields and 'password' in update_fields:
+    update_fields = kwargs.get("update_fields")
+    if update_fields and "password" in update_fields:
         from .api.v1.utils import blacklist_all_user_tokens
+
         blacklist_all_user_tokens(instance)

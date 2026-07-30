@@ -17,28 +17,25 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True,
         required=True,
         min_length=8,
-        style={'input_type': 'password'},
-        label=_("رمز عبور")
+        style={"input_type": "password"},
+        label=_("رمز عبور"),
     )
     password2 = serializers.CharField(
         write_only=True,
         required=True,
-        style={'input_type': 'password'},
-        label=_("تکرار رمز عبور")
+        style={"input_type": "password"},
+        label=_("تکرار رمز عبور"),
     )
     phone_number = serializers.CharField(
-        required=False,
-        allow_blank=True,
-        max_length=15,
-        label=_("شماره تماس")
+        required=False, allow_blank=True, max_length=15, label=_("شماره تماس")
     )
 
     class Meta:
         model = User
-        fields = ('email', 'name', 'password', 'password2', 'phone_number')
+        fields = ("email", "name", "password", "password2", "phone_number")
         extra_kwargs = {
-            'email': {'required': True, 'label': _("ایمیل")},
-            'name': {'required': True, 'label': _("نام کامل")},
+            "email": {"required": True, "label": _("ایمیل")},
+            "name": {"required": True, "label": _("نام کامل")},
         }
 
     def validate_email(self, value):
@@ -47,16 +44,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        if attrs['password'] != attrs.pop('password2'):
-            raise serializers.ValidationError({"password": _("رمزهای عبور با هم مطابقت ندارند.")})
+        if attrs["password"] != attrs.pop("password2"):
+            raise serializers.ValidationError(
+                {"password": _("رمزهای عبور با هم مطابقت ندارند.")}
+            )
         return attrs
 
     def create(self, validated_data):
-        phone_number = validated_data.pop('phone_number', None)
+        phone_number = validated_data.pop("phone_number", None)
         user = User.objects.create_user(
-            email=validated_data['email'],
-            name=validated_data['name'],
-            password=validated_data['password']
+            email=validated_data["email"],
+            name=validated_data["name"],
+            password=validated_data["password"],
         )
         # ذخیره شماره تماس در پروفایل ایجاد شده توسط سیگنال
         if phone_number:
@@ -70,8 +69,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         """
         refresh = RefreshToken.for_user(instance)
         return {
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
         }
 
 
@@ -80,52 +79,55 @@ class LoginSerializer(TokenObtainPairSerializer):
     سریالایزر ورود (استفاده از ایمیل و رمز عبور).
     از TokenObtainPairSerializer استاندارد SimpleJWT ارث‌بری می‌کند.
     """
+
     username_field = User.USERNAME_FIELD  # 'email'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.username_field].label = _("ایمیل")
-        self.fields['password'].label = _("رمز عبور")
+        self.fields["password"].label = _("رمز عبور")
 
 
 class RefreshSerializer(serializers.Serializer):
     refresh = serializers.CharField(
         required=False,
-        help_text="برای موبایل: token رفرش را در بدنه ارسال کنید. برای وب: از کوکی خوانده می‌شود."
+        help_text="برای موبایل: token رفرش را در بدنه ارسال کنید. برای وب: از کوکی خوانده می‌شود.",
     )
 
     def validate(self, attrs):
-        request = self.context.get('request')
+        request = self.context.get("request")
         refresh_token = None
 
-        if hasattr(request, 'device_type') and request.device_type == 'web':
-            refresh_token = request.COOKIES.get('refresh_token')
+        if hasattr(request, "device_type") and request.device_type == "web":
+            refresh_token = request.COOKIES.get("refresh_token")
             if not refresh_token:
                 raise serializers.ValidationError({"refresh": _("کوکی رفرش پیدا نشد.")})
         else:
-            refresh_token = attrs.get('refresh', '')
+            refresh_token = attrs.get("refresh", "")
             if not refresh_token:
-                raise serializers.ValidationError({"refresh": _("توکن رفرش الزامی است.")})
+                raise serializers.ValidationError(
+                    {"refresh": _("توکن رفرش الزامی است.")}
+                )
 
         try:
             refresh = RefreshToken(refresh_token)
         except Exception:
-            raise serializers.ValidationError({"refresh": _("توکن رفرش نامعتبر یا منقضی شده است.")})
-
+            raise serializers.ValidationError(
+                {"refresh": _("توکن رفرش نامعتبر یا منقضی شده است.")}
+            )
 
         if api_settings.ROTATE_REFRESH_TOKENS:
             if api_settings.BLACKLIST_AFTER_ROTATION:
                 try:
                     refresh.blacklist()
                 except AttributeError:
-                    pass  
+                    pass
 
-        
             refresh = RefreshToken.for_user(refresh.user)
 
         data = {
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
         }
         return data
 
@@ -134,38 +136,40 @@ class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(
         required=True,
         write_only=True,
-        style={'input_type': 'password'},
-        label=_("رمز عبور فعلی")
+        style={"input_type": "password"},
+        label=_("رمز عبور فعلی"),
     )
     new_password = serializers.CharField(
         required=True,
         write_only=True,
         min_length=8,
-        style={'input_type': 'password'},
-        label=_("رمز عبور جدید")
+        style={"input_type": "password"},
+        label=_("رمز عبور جدید"),
     )
     new_password2 = serializers.CharField(
         required=True,
         write_only=True,
-        style={'input_type': 'password'},
-        label=_("تکرار رمز عبور جدید")
+        style={"input_type": "password"},
+        label=_("تکرار رمز عبور جدید"),
     )
 
     def validate_old_password(self, value):
-        user = self.context['request'].user
+        user = self.context["request"].user
         if not user.check_password(value):
             raise serializers.ValidationError(_("رمز عبور فعلی اشتباه است."))
         return value
 
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password2']:
-            raise serializers.ValidationError({"new_password": _("رمزهای عبور جدید مطابقت ندارند.")})
+        if attrs["new_password"] != attrs["new_password2"]:
+            raise serializers.ValidationError(
+                {"new_password": _("رمزهای عبور جدید مطابقت ندارند.")}
+            )
         return attrs
 
     def save(self, **kwargs):
-        user = self.context['request'].user
-        user.set_password(self.validated_data['new_password'])
-        user.save(update_fields=['password'])  
+        user = self.context["request"].user
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
         return user
 
 
@@ -173,22 +177,23 @@ class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField(label=_("ایمیل"))
 
     def validate_email(self, value):
-       
+
         return value
 
     def save(self):
-        email = self.validated_data['email']
+        email = self.validated_data["email"]
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-          
+
             return
 
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
         from .utils import send_password_reset_email
-        send_password_reset_email(user, uid, token, request=self.context.get('request'))
+
+        send_password_reset_email(user, uid, token, request=self.context.get("request"))
 
 
 class ResetPasswordConfirmSerializer(serializers.Serializer):
@@ -198,54 +203,71 @@ class ResetPasswordConfirmSerializer(serializers.Serializer):
         required=True,
         write_only=True,
         min_length=8,
-        style={'input_type': 'password'},
-        label=_("رمز عبور جدید")
+        style={"input_type": "password"},
+        label=_("رمز عبور جدید"),
     )
     new_password2 = serializers.CharField(
         required=True,
         write_only=True,
-        style={'input_type': 'password'},
-        label=_("تکرار رمز عبور جدید")
+        style={"input_type": "password"},
+        label=_("تکرار رمز عبور جدید"),
     )
 
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['new_password2']:
-            raise serializers.ValidationError({"new_password": _("رمزهای عبور جدید مطابقت ندارند.")})
+        if attrs["new_password"] != attrs["new_password2"]:
+            raise serializers.ValidationError(
+                {"new_password": _("رمزهای عبور جدید مطابقت ندارند.")}
+            )
 
         try:
-            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            uid = force_str(urlsafe_base64_decode(attrs["uid"]))
             self.user = User.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             raise serializers.ValidationError({"uid": _("شناسه کاربر نامعتبر است.")})
 
-        if not default_token_generator.check_token(self.user, attrs['token']):
-            raise serializers.ValidationError({"token": _("توکن بازنشانی نامعتبر یا منقضی شده است.")})
+        if not default_token_generator.check_token(self.user, attrs["token"]):
+            raise serializers.ValidationError(
+                {"token": _("توکن بازنشانی نامعتبر یا منقضی شده است.")}
+            )
 
         return attrs
 
     def save(self):
-        self.user.set_password(self.validated_data['new_password'])
-        self.user.save(update_fields=['password']) 
+        self.user.set_password(self.validated_data["new_password"])
+        self.user.save(update_fields=["password"])
         return self.user
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(source='user.email', read_only=True, label=_("ایمیل"))
-    name = serializers.CharField(source='user.name', read_only=True, label=_("نام کامل"))
+    email = serializers.EmailField(
+        source="user.email", read_only=True, label=_("ایمیل")
+    )
+    name = serializers.CharField(
+        source="user.name", read_only=True, label=_("نام کامل")
+    )
 
     class Meta:
         model = Profile
         fields = [
-            'id', 'user', 'email', 'name', 'bio', 'avatar',
-            'phone_number', 'birth_date', 'website', 'location',
-            'created_at', 'updated_at'
+            "id",
+            "user",
+            "email",
+            "name",
+            "bio",
+            "avatar",
+            "phone_number",
+            "birth_date",
+            "website",
+            "location",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['user', 'created_at', 'updated_at']
+        read_only_fields = ["user", "created_at", "updated_at"]
         extra_kwargs = {
-            'bio': {'label': _("بیوگرافی")},
-            'avatar': {'label': _("تصویر پروفایل")},
-            'phone_number': {'label': _("شماره تماس")},
-            'birth_date': {'label': _("تاریخ تولد")},
-            'website': {'label': _("وب‌سایت شخصی")},
-            'location': {'label': _("محل سکونت")},
+            "bio": {"label": _("بیوگرافی")},
+            "avatar": {"label": _("تصویر پروفایل")},
+            "phone_number": {"label": _("شماره تماس")},
+            "birth_date": {"label": _("تاریخ تولد")},
+            "website": {"label": _("وب‌سایت شخصی")},
+            "location": {"label": _("محل سکونت")},
         }
