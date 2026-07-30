@@ -23,6 +23,9 @@
 
 ###  شمای کلی پروژه و  مسیر ها
 ![Project Map](screenshots/1.png)
+![Project Map](screenshots/2.png)
+*شمای مدل Profile
+![Project Map](screenshots/3.png)
 
 
 
