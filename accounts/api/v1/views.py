@@ -9,7 +9,10 @@ from rest_framework.response import Response
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-
+from .throttles import LoginRateThrottle, RefreshRateThrottle, LogoutRateThrottle
+from .utils import blacklist_user_tokens_by_fingerprint
+from rest_framework_simplejwt.exceptions import TokenError
+import json
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -21,7 +24,6 @@ from .serializers import (
 )
 from .authentication import CookieOrHeaderJWTAuthentication
 
-# خواندن تنظیمات کوکی مستقیماً از SIMPLE_JWT
 jwt_settings = getattr(settings, "SIMPLE_JWT", {})
 ACCESS_COOKIE = jwt_settings.get("AUTH_COOKIE", "access_token")
 REFRESH_COOKIE = jwt_settings.get("AUTH_COOKIE_REFRESH", "refresh_token")
@@ -94,7 +96,7 @@ class RegisterView(APIView):
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = LoginSerializer
-
+    throttle_classes = [LoginRateThrottle] 
     @method_decorator(sensitive_post_parameters("password"))
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
@@ -113,6 +115,7 @@ class LoginView(APIView):
 class RefreshView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = RefreshSerializer
+    throttle_classes = [RefreshRateThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(
@@ -129,6 +132,7 @@ class RefreshView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [RefreshRateThrottle]
 
     def post(self, request, *args, **kwargs):
         refresh_token = None
@@ -137,10 +141,19 @@ class LogoutView(APIView):
         else:
             refresh_token = request.data.get("refresh")
 
+        logout_all = request.data.get("logout_all_devices", False)
+
         if refresh_token:
             try:
                 token = RefreshToken(refresh_token)
-                token.blacklist()
+                if logout_all:
+                    fp = token.get('fp')
+                    if fp:
+                        blacklist_user_tokens_by_fingerprint(token['user_id'], fp)
+                    else:
+                        token.blacklist()
+                else:
+                    token.blacklist()
             except TokenError:
                 pass
 
