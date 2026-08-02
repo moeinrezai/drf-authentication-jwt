@@ -77,61 +77,59 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(TokenObtainPairSerializer):
-    """
-    سریالایزر ورود (استفاده از ایمیل و رمز عبور).
-    از TokenObtainPairSerializer استاندارد SimpleJWT ارث‌بری می‌کند.
-    """
-
-    username_field = User.USERNAME_FIELD  # 'email'
+  
+    username_field = User.USERNAME_FIELD
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.username_field].label = _("ایمیل")
         self.fields["password"].label = _("رمز عبور")
 
+    def get_token(self, user):
+        token = super().get_token(user)
+        request = self.context.get('request')
+        if request:
+            token['fp'] = generate_fingerprint(request)
+        return token
+
 
 class RefreshSerializer(serializers.Serializer):
-    refresh = serializers.CharField(
-        required=False,
-        help_text="برای موبایل: token رفرش را در بدنه ارسال کنید. برای وب: از کوکی خوانده می‌شود.",
-    )
+    refresh = serializers.CharField(required=False)
 
     def validate(self, attrs):
-        request = self.context.get("request")
+        request = self.context.get('request')
         refresh_token = None
-
-        if hasattr(request, "device_type") and request.device_type == "web":
-            refresh_token = request.COOKIES.get("refresh_token")
+        if hasattr(request, 'device_type') and request.device_type == 'web':
+            refresh_token = request.COOKIES.get('refresh_token')
             if not refresh_token:
                 raise serializers.ValidationError({"refresh": _("کوکی رفرش پیدا نشد.")})
         else:
-            refresh_token = attrs.get("refresh", "")
+            refresh_token = attrs.get('refresh', '')
             if not refresh_token:
-                raise serializers.ValidationError(
-                    {"refresh": _("توکن رفرش الزامی است.")}
-                )
+                raise serializers.ValidationError({"refresh": _("توکن رفرش الزامی است.")})
 
         try:
-            refresh = RefreshToken(refresh_token)
+            old_refresh = RefreshToken(refresh_token)
         except Exception:
-            raise serializers.ValidationError(
-                {"refresh": _("توکن رفرش نامعتبر یا منقضی شده است.")}
-            )
+            raise serializers.ValidationError({"refresh": _("توکن رفرش نامعتبر یا منقضی شده است.")})
 
         if api_settings.ROTATE_REFRESH_TOKENS:
             if api_settings.BLACKLIST_AFTER_ROTATION:
                 try:
-                    refresh.blacklist()
+                    old_refresh.blacklist()
                 except AttributeError:
                     pass
+            new_refresh = RefreshToken.for_user(old_refresh.user)
+        else:
+            new_refresh = old_refresh
 
-            refresh = RefreshToken.for_user(refresh.user)
+        if request:
+            new_refresh['fp'] = generate_fingerprint(request)
 
-        data = {
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
+        return {
+            'access': str(new_refresh.access_token),
+            'refresh': str(new_refresh),
         }
-        return data
 
 
 class ChangePasswordSerializer(serializers.Serializer):
