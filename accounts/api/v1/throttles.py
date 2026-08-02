@@ -1,10 +1,13 @@
 from rest_framework.throttling import ScopedRateThrottle
 
+
 class LoginRateThrottle(ScopedRateThrottle):
-    scope = 'login'
+    scope = "login"
+
 
 class RefreshRateThrottle(ScopedRateThrottle):
-    scope = 'refresh'
+    scope = "refresh"
+
 
 class LogoutRateThrottle(ScopedRateThrottle):
-    scope = 'logout'
+    scope = "logout"

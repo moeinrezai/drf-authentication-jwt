@@ -1,4 +1,3 @@
-# accounts/api/v1/views.py
 from django.conf import settings
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -9,10 +8,9 @@ from rest_framework.response import Response
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+
 from .throttles import LoginRateThrottle, RefreshRateThrottle, LogoutRateThrottle
 from .utils import blacklist_user_tokens_by_fingerprint
-from rest_framework_simplejwt.exceptions import TokenError
-import json
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -22,7 +20,6 @@ from .serializers import (
     ResetPasswordConfirmSerializer,
     ProfileSerializer,
 )
-from .authentication import CookieOrHeaderJWTAuthentication
 
 jwt_settings = getattr(settings, "SIMPLE_JWT", {})
 ACCESS_COOKIE = jwt_settings.get("AUTH_COOKIE", "access_token")
@@ -35,20 +32,14 @@ COOKIE_PATH = jwt_settings.get("AUTH_COOKIE_PATH", "/")
 
 def set_auth_cookies(response, access_token, refresh_token):
     response.set_cookie(
-        key=ACCESS_COOKIE,
-        value=access_token,
-        httponly=COOKIE_HTTPONLY,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-        path=COOKIE_PATH,
+        key=ACCESS_COOKIE, value=access_token,
+        httponly=COOKIE_HTTPONLY, secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE, path=COOKIE_PATH,
     )
     response.set_cookie(
-        key=REFRESH_COOKIE,
-        value=refresh_token,
-        httponly=COOKIE_HTTPONLY,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-        path=COOKIE_PATH,
+        key=REFRESH_COOKIE, value=refresh_token,
+        httponly=COOKIE_HTTPONLY, secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE, path=COOKIE_PATH,
     )
     return response
 
@@ -79,7 +70,7 @@ class RegisterView(APIView):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         tokens = serializer.to_representation(user)
@@ -96,13 +87,14 @@ class RegisterView(APIView):
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = LoginSerializer
-    throttle_classes = [LoginRateThrottle] 
+    throttle_classes = [LoginRateThrottle]
+
     @method_decorator(sensitive_post_parameters("password"))
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
@@ -132,7 +124,7 @@ class RefreshView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    throttle_classes = [RefreshRateThrottle]
+    throttle_classes = [LogoutRateThrottle]   # اصلاح شد
 
     def post(self, request, *args, **kwargs):
         refresh_token = None
@@ -147,9 +139,9 @@ class LogoutView(APIView):
             try:
                 token = RefreshToken(refresh_token)
                 if logout_all:
-                    fp = token.get('fp')
+                    fp = token.get("fp")
                     if fp:
-                        blacklist_user_tokens_by_fingerprint(token['user_id'], fp)
+                        blacklist_user_tokens_by_fingerprint(token["user_id"], fp)
                     else:
                         token.blacklist()
                 else:
@@ -196,9 +188,7 @@ class ForgotPasswordView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
-            {
-                "detail": "اگر این ایمیل در سیستم وجود داشته باشد لینک بازنشانی ارسال خواهد شد."
-            }
+            {"detail": "اگر این ایمیل در سیستم وجود داشته باشد لینک بازنشانی ارسال خواهد شد."}
         )
 
 

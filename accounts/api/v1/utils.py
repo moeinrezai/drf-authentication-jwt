@@ -1,5 +1,7 @@
 from django.core.mail import send_mail
 from django.conf import settings
+import json
+from rest_framework_simplejwt.tokens import RefreshToken as RefreshTokenClass
 from django.utils.translation import gettext_lazy as _
 from rest_framework_simplejwt.token_blacklist.models import (
     OutstandingToken,
@@ -57,3 +59,19 @@ def send_welcome_email(user):
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+
+def blacklist_user_tokens_by_fingerprint(user_id, fp):
+    tokens = OutstandingToken.objects.filter(user_id=user_id)
+    blacklisted = 0
+    for ot in tokens:
+        try:
+
+            token_obj = RefreshTokenClass(ot.token)
+            if token_obj.payload.get("fp") == fp:
+                _, created = BlacklistedToken.objects.get_or_create(token=ot)
+                if created:
+                    blacklisted += 1
+        except Exception:
+            continue
+    return blacklisted

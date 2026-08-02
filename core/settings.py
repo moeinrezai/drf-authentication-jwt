@@ -106,6 +106,15 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(
+    {
+        "login": "5/min",
+        "refresh": "10/min",
+        "logout": "10/min",
+    }
+)
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -120,6 +129,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SAMESITE": "Lax",
 }
 
+JWT_FINGERPRINT_SECRET = os.getenv("JWT_FINGERPRINT_SECRET", "change-in-production")
 CSRF_COOKIE_HTTPONLY = False
 CSRF_TRUSTED_ORIGINS = []
 
@@ -159,4 +169,3 @@ SPECTACULAR_SETTINGS = {
     },
     "COMPONENT_SPLIT_REQUEST": True,
 }
-
