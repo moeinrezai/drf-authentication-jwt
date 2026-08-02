@@ -8,7 +8,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.settings import api_settings
 from accounts.models import Profile
-
+import hashlib
+from rest_framework_simplejwt.tokens import RefreshToken
+from .fingerprint import generate_fingerprint
 User = get_user_model()
 
 
@@ -64,10 +66,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
     def to_representation(self, instance):
-        """
-        پس از ثبت‌نام، توکن‌های JWT را برمی‌گردانیم.
-        """
         refresh = RefreshToken.for_user(instance)
+        request = self.context.get('request')
+        if request:
+            refresh['fp'] = generate_fingerprint(request)
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
