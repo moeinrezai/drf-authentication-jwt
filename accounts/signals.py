@@ -8,27 +8,20 @@ User = get_user_model()
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
-    """
-    ایجاد خودکار پروفایل هنگام ساخت کاربر جدید
-    """
+   
     if created:
         Profile.objects.get_or_create(user=instance)
 
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    """
-    ذخیره پروفایل پس از به‌روزرسانی کاربر
-    """
+  
     if hasattr(instance, "profile"):
         instance.profile.save()
 
 
 @receiver(post_save, sender=User)
 def blacklist_tokens_on_password_change(sender, instance, **kwargs):
-    """
-    بلاک‌لیست کردن تمام توکن‌ها هنگام تغییر رمز عبور
-    """
     update_fields = kwargs.get("update_fields")
     if update_fields and "password" in update_fields:
         from .api.v1.utils import blacklist_all_user_tokens
