@@ -173,7 +173,7 @@ class ChangePasswordSerializerTest(TestCase):
         serializer = ChangePasswordSerializer(data=data, context={"request": request})
         self.assertFalse(serializer.is_valid())
         self.assertIn("new_password", serializer.errors)
-
+ 
     def test_weak_new_password(self):
         data = {
             "old_password": "OldPassword123",
