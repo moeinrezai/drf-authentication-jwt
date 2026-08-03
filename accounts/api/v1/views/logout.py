@@ -3,12 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .helpers import REFRESH_COOKIE, delete_auth_cookies
 from ..throttles import LogoutRateThrottle
 from ..serializers import LogoutSerializer 
+from ..utils import blacklist_all_user_tokens 
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -31,21 +31,17 @@ class LogoutView(APIView):
 
         logout_all = serializer.validated_data.get("logout_all_devices", False)
 
-   
         refresh_token = None
         if getattr(request, "device_type", None) == "web":
             refresh_token = request.COOKIES.get(REFRESH_COOKIE)
         else:
             refresh_token = serializer.validated_data.get("refresh")
 
-  
-        if logout_all:
-  
-            user_tokens = OutstandingToken.objects.filter(user=request.user)
-            for t in user_tokens:
     
-                if not BlacklistedToken.objects.filter(token=t).exists():
-                    t.blacklist()
+        if logout_all:
+          
+            blacklist_all_user_tokens(request.user)
+            
         elif refresh_token:
      
             try:
@@ -53,7 +49,6 @@ class LogoutView(APIView):
                 token.blacklist()
             except TokenError:
                 pass
-
 
         response = Response({"detail": "خروج موفقیت‌آمیز."}, status=status.HTTP_200_OK)
         if getattr(request, "device_type", None) == "web":
