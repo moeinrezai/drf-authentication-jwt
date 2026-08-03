@@ -1,17 +1,37 @@
 version: '3.9'
 
-
 services:
-  backend-account:
-    container_name: account
+  backend:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-
+    container_name: drf_jwt_backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
-
+    volumes:
+      - .:/app                
+    env_file:
+      - .env
     environment:
-      - SECRET_KEY=test
-      - DEBUG=True
+      - DJANGO_SETTINGS_MODULE=core.settings
+    networks:
+      - app_network
+
+  locust:
+    image: locustio/locust
+    container_name: drf_jwt_locust
+    ports:
+      - "8089:8089"          
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py
+    command: >
+      -f /mnt/locust/locustfile.py
+      --host=http://backend:8000
+      --web-port 8089
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

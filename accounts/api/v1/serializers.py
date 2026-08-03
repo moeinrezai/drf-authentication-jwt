@@ -117,7 +117,9 @@ class RefreshSerializer(serializers.Serializer):
                     old_refresh.blacklist()
                 except AttributeError:
                     pass
-            new_refresh = RefreshToken.for_user(old_refresh.user)
+            user_id = old_refresh.payload.get('user_id')
+            user = User.objects.get(id=user_id)
+            new_refresh = RefreshToken.for_user(user)
         else:
             new_refresh = old_refresh
 

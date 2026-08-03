@@ -7,3 +7,4 @@ python-dotenv==1.0.1
 Pillow==10.4.0
 drf-yasg[validation]
 black
+locust
