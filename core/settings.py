@@ -1,16 +1,18 @@
-"""
-Django settings for core project.
-"""
-
 import os
 from pathlib import Path
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("SECRET_KEY", "test")
+
+SECRET_KEY = os.getenv(
+    "SECRET_KEY", 
+    "django-insecure-fallback-key-for-dev-only-change-in-prod-1234567890"
+)
+
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -19,12 +21,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+ 
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_yasg",
     "drf_spectacular",
+    
+
     "accounts",
 ]
 
@@ -50,14 +55,32 @@ DATABASES = {
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = [
+TEMPLATES = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
     },
+]
+
+
+AUTH_USER_MODEL = "accounts.User"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -73,23 +96,6 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-AUTH_USER_MODEL = "accounts.User"
-
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.debug",
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ],
-        },
-    },
-]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -102,18 +108,13 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "10/minute",
         "user": "20/minute",
+        "login": "5/min",
+        "refresh": "10/min",
+        "logout": "10/min",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-
-REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(
-    {
-        "login": "5/min",
-        "refresh": "10/min",
-        "logout": "10/min",
-    }
-)
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
@@ -121,6 +122,16 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
+    
+
+    "SIGNING_KEY": os.getenv(
+        "JWT_SIGNING_KEY",
+        "super-secret-jwt-signing-key-at-least-32-chars-long-1234567890"
+    ),
+    
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    
+
     "AUTH_COOKIE": "access_token",
     "AUTH_COOKIE_REFRESH": "refresh_token",
     "AUTH_COOKIE_SECURE": not DEBUG,
@@ -129,21 +140,26 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SAMESITE": "Lax",
 }
 
-JWT_FINGERPRINT_SECRET = os.getenv("JWT_FINGERPRINT_SECRET", "change-in-production")
-CSRF_COOKIE_HTTPONLY = False
-CSRF_TRUSTED_ORIGINS = []
+JWT_FINGERPRINT_SECRET = os.getenv("JWT_FINGERPRINT_SECRET", "change-this-fingerprint-secret-in-production")
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-]
+
+CSRF_COOKIE_HTTPONLY = False  
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(",")
+
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+
+
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS", 
+    "http://localhost:3000,http://127.0.0.1:3000"
+).split(",")
 CORS_ALLOW_CREDENTIALS = True
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@localhost")

@@ -8,7 +8,6 @@ from accounts.api.v1.serializers import (
     ChangePasswordSerializer,
     RefreshSerializer,
 )
-from rest_framework.test import APIRequestFactory, APIClient
 from django.http import HttpRequest
 
 User = get_user_model()
@@ -42,7 +41,11 @@ class RegisterSerializerTest(TestCase):
         self.assertIn("email", serializer.errors)
 
     def test_duplicate_email(self):
-        User.objects.create_user(**self.valid_data)
+        User.objects.create_user(
+            email=self.valid_data["email"],
+            name=self.valid_data["name"],
+            password=self.valid_data["password"],
+        )
         serializer = RegisterSerializer(data=self.valid_data)
         self.assertFalse(serializer.is_valid())
         self.assertIn("email", serializer.errors)
@@ -71,7 +74,6 @@ class LoginSerializerTest(TestCase):
         self.valid_data = {"email": "test@example.com", "password": "TestPassword123"}
 
     def _create_request(self, ua="Mozilla/5.0 (Linux; Android 10)"):
-
         request = HttpRequest()
         request.META["HTTP_USER_AGENT"] = ua
         return request

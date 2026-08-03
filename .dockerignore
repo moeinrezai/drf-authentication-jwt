@@ -1,0 +1,31 @@
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Git and CI/CD
+.git/
+.gitignore
+
+# Django specific
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+/static
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db

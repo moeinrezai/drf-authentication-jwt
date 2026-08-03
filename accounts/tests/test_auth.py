@@ -39,12 +39,17 @@ class AuthenticationAPITest(BaseAPITest):
             "password2": "TestPass123",
         }
         self.login_data = {"email": "test@example.com", "password": "TestPass123"}
-        self.user = User.objects.create_user(**self.register_data)
+        # فقط فیلدهای مورد نیاز مدل برای create_user
+        self.user = User.objects.create_user(
+            email=self.register_data["email"],
+            name=self.register_data["name"],
+            password=self.register_data["password"],
+        )
 
         self.mobile_ua = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36"
         self.web_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
-
+    # ---------- CSRF ----------
     def test_csrf_endpoint_web(self):
         response = self.client.get(self.csrf_url, HTTP_USER_AGENT=self.web_ua)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -64,7 +69,6 @@ class AuthenticationAPITest(BaseAPITest):
     def test_register_valid_web(self):
         data = self.register_data.copy()
         data["email"] = "web@example.com"
-        # ابتدا CSRF بگیریم
         csrf_resp = self.client.get(self.csrf_url, HTTP_USER_AGENT=self.web_ua)
         csrf_token = csrf_resp.cookies["csrftoken"].value
         response = self.client.post(
@@ -99,7 +103,7 @@ class AuthenticationAPITest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("password", response.data)
 
-
+    # ---------- Login ----------
     def test_login_valid_mobile(self):
         response = self.client.post(
             self.login_url,
@@ -134,7 +138,7 @@ class AuthenticationAPITest(BaseAPITest):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-
+    # ---------- Logout ----------
     def test_logout_mobile_blacklists_token(self):
         refresh = self.authenticate(self.user)
         response = self.client.post(
@@ -149,7 +153,6 @@ class AuthenticationAPITest(BaseAPITest):
         )
 
     def test_logout_web_clears_cookies(self):
-      
         csrf_resp = self.client.get(self.csrf_url, HTTP_USER_AGENT=self.web_ua)
         csrf_token = csrf_resp.cookies["csrftoken"].value
         login_resp = self.client.post(
@@ -159,11 +162,11 @@ class AuthenticationAPITest(BaseAPITest):
             HTTP_USER_AGENT=self.web_ua,
             HTTP_X_CSRFTOKEN=csrf_token,
         )
-    
         self.assertEqual(login_resp.status_code, status.HTTP_200_OK)
-
         response = self.client.post(
-            self.logout_url, {}, HTTP_USER_AGENT=self.web_ua,
+            self.logout_url,
+            {},
+            HTTP_USER_AGENT=self.web_ua,
             HTTP_X_CSRFTOKEN=csrf_token,
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -172,7 +175,7 @@ class AuthenticationAPITest(BaseAPITest):
             self.assertIsNotNone(cookie)
             self.assertEqual(cookie.value, "")
 
-
+    # ---------- Refresh ----------
     def test_refresh_rotates_and_blacklists(self):
         refresh = self.authenticate(self.user)
         old_jti = refresh.payload["jti"]
@@ -198,7 +201,7 @@ class AuthenticationAPITest(BaseAPITest):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-  
+    # ---------- Change Password ----------
     def test_change_password_success(self):
         refresh = self.authenticate(self.user)
         response = self.client.post(
@@ -233,7 +236,7 @@ class AuthenticationAPITest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("old_password", response.data)
 
-
+    # ---------- Profile ----------
     def test_get_profile(self):
         self.authenticate(self.user)
         response = self.client.get(self.profile_url, HTTP_USER_AGENT=self.mobile_ua)

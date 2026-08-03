@@ -12,7 +12,7 @@ class RefreshView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = RefreshSerializer
     throttle_classes = [RefreshRateThrottle]
-
+    throttle_scope = 'refresh'
     @swagger_auto_schema(
         operation_description="تمدید توکن (چرخش خودکار)",
         request_body=openapi.Schema(

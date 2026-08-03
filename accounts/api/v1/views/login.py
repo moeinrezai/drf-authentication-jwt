@@ -14,7 +14,7 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = LoginSerializer
     throttle_classes = [LoginRateThrottle]
-
+    throttle_scope = 'login'
     @method_decorator(sensitive_post_parameters("password"))
     def dispatch(self, *args, **kwargs):
         return super().dispatch(*args, **kwargs)

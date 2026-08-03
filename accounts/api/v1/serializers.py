@@ -79,7 +79,11 @@ class LoginSerializer(TokenObtainPairSerializer):
         self.fields["password"].label = _("رمز عبور")
 
     def validate(self, attrs):
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except Exception:
+            raise serializers.ValidationError(_("ایمیل یا رمز عبور اشتباه است."))
+
         request = self.context.get("request")
         if request:
             refresh = RefreshToken(data["refresh"])
@@ -90,6 +94,27 @@ class LoginSerializer(TokenObtainPairSerializer):
             data["access"] = str(refresh.access_token)
         return data
 
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(
+        required=False,
+        help_text="رفرش توکن (برای اپلیکیشن‌های موبایل)"
+    )
+    logout_all_devices = serializers.BooleanField(
+        default=False,
+        help_text="خروج از تمام دستگاه‌های کاربر"
+    )
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        device_type = getattr(request, 'device_type', None)
+        
+     
+        if device_type != 'web' and not attrs.get('refresh'):
+            raise serializers.ValidationError({
+                "refresh": "این فیلد برای اپلیکیشن‌های موبایل الزامی است."
+            })
+            
+        return attrs
 
 class RefreshSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=False)
@@ -97,7 +122,11 @@ class RefreshSerializer(serializers.Serializer):
     def validate(self, attrs):
         request = self.context.get("request")
         refresh_token = None
-        if hasattr(request, "device_type") and request.device_type == "web":
+        
+       
+        device_type = getattr(request, "device_type", None)
+        
+        if device_type == "web":
             refresh_token = request.COOKIES.get("refresh_token")
             if not refresh_token:
                 raise serializers.ValidationError({"refresh": _("کوکی رفرش پیدا نشد.")})
@@ -171,6 +200,9 @@ class ChangePasswordSerializer(serializers.Serializer):
         user = self.context["request"].user
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
+        from .utils import blacklist_all_user_tokens
+        blacklist_all_user_tokens(user)
+        
         return user
 
 
